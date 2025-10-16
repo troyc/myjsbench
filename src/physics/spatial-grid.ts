@@ -1,137 +1,136 @@
 import { Entity } from '../ecs/components.js';
 
-// Spatial Grid for efficient collision detection
-interface CellCoord {
-  col: number;
-  row: number;
+// Spatial Grid for efficient collision detection (optimized)
+interface Cell {
+  items: Entity[];
+  stamp: number;
 }
 
 export class SpatialGrid {
-  private cells: Map<number, Map<number, Entity[]>>;
-  private readonly cellSize: number;
+  private cells: Map<number, Cell>;
   private readonly cellSizeInv: number;
+  private stamp: number;
+
+  // Use a fixed offset to keep packed keys unique for small negative indices
+  private static readonly OFFSET = 1 << 15; // 32768
 
   constructor(_width: number, _height: number, cellSize: number) {
-    this.cellSize = cellSize;
     this.cellSizeInv = 1 / cellSize;
-    this.cells = new Map<number, Map<number, Entity[]>>();
+    this.cells = new Map<number, Cell>();
+    this.stamp = 1;
   }
 
+  // O(1) clear using a frame-stamp; buckets reset lazily on next touch
   clear(): void {
-    this.cells.clear();
+    this.stamp++;
+    // Very long runs: occasionally reset to avoid overflow and memory bloat
+    if (this.stamp === Number.MAX_SAFE_INTEGER) {
+      this.cells.clear();
+      this.stamp = 1;
+    }
   }
 
   insert(entity: Entity): void {
     const body = entity.body;
     if (!body) return;
 
-    const cellCoords = this.getCellsForEntity(body.x, body.y, body.radius);
-    for (const { col, row } of cellCoords) {
-      let column = this.cells.get(col);
-      if (!column) {
-        column = new Map<number, Entity[]>();
-        this.cells.set(col, column);
-      }
+    const radius = body.radius;
+    const minCol = Math.floor((body.x - radius) * this.cellSizeInv);
+    const maxCol = Math.floor((body.x + radius) * this.cellSizeInv);
+    const minRow = Math.floor((body.y - radius) * this.cellSizeInv);
+    const maxRow = Math.floor((body.y + radius) * this.cellSizeInv);
 
-      let bucket = column.get(row);
-      if (!bucket) {
-        bucket = [];
-        column.set(row, bucket);
+    for (let col = minCol; col <= maxCol; col++) {
+      for (let row = minRow; row <= maxRow; row++) {
+        const key = this.packKey(col, row);
+        let cell = this.cells.get(key);
+        if (!cell) {
+          cell = { items: [], stamp: 0 };
+          this.cells.set(key, cell);
+        }
+        if (cell.stamp !== this.stamp) {
+          cell.items.length = 0;
+          cell.stamp = this.stamp;
+        }
+        cell.items.push(entity);
       }
-
-      bucket.push(entity);
     }
   }
 
+  // Returns potential neighbors of the given entity by scanning a bounded region
   query(entity: Entity): Entity[] {
     const body = entity.body;
     if (!body) return [];
 
-    const nearbyEntities = new Set<Entity>();
-    const visitedCells = new Set<string>();
-    const cellCoords = this.getCellsForEntity(body.x, body.y, body.radius);
+    const radius = body.radius;
+    const minCol = Math.floor((body.x - radius) * this.cellSizeInv) - 1;
+    const maxCol = Math.floor((body.x + radius) * this.cellSizeInv) + 1;
+    const minRow = Math.floor((body.y - radius) * this.cellSizeInv) - 1;
+    const maxRow = Math.floor((body.y + radius) * this.cellSizeInv) + 1;
 
-    for (const { col, row } of cellCoords) {
-      for (let dc = -1; dc <= 1; dc++) {
-        for (let dr = -1; dr <= 1; dr++) {
-          const neighborCol = col + dc;
-          const neighborRow = row + dr;
-          const key = this.encodeCell(neighborCol, neighborRow);
+    const seenIds = new Set<number>();
+    const result: Entity[] = [];
 
-          if (visitedCells.has(key)) continue;
-          visitedCells.add(key);
+    for (let col = minCol; col <= maxCol; col++) {
+      for (let row = minRow; row <= maxRow; row++) {
+        const key = this.packKey(col, row);
+        const cell = this.cells.get(key);
+        if (!cell || cell.stamp !== this.stamp) continue;
 
-          const column = this.cells.get(neighborCol);
-          if (!column) continue;
-
-          const bucket = column.get(neighborRow);
-          if (!bucket) continue;
-
-          for (const other of bucket) {
-            if (other !== entity) {
-              nearbyEntities.add(other);
-            }
+        const items = cell.items;
+        for (let i = 0; i < items.length; i++) {
+          const other = items[i];
+          if (other === entity) continue;
+          const id = other.id;
+          if (!seenIds.has(id)) {
+            seenIds.add(id);
+            result.push(other);
           }
         }
       }
     }
 
-    return Array.from(nearbyEntities);
+    return result;
   }
 
   getEntitiesInRadius(x: number, y: number, radius: number): Entity[] {
-    const entitiesInRadius: Entity[] = [];
-    const radiusSquared = radius * radius;
+    const result: Entity[] = [];
+    const r2 = radius * radius;
 
-    // Determine which cells to check
     const minCol = Math.floor((x - radius) * this.cellSizeInv);
     const maxCol = Math.floor((x + radius) * this.cellSizeInv);
     const minRow = Math.floor((y - radius) * this.cellSizeInv);
     const maxRow = Math.floor((y + radius) * this.cellSizeInv);
 
     for (let col = minCol; col <= maxCol; col++) {
-      const column = this.cells.get(col);
-      if (!column) continue;
-
       for (let row = minRow; row <= maxRow; row++) {
-        const bucket = column.get(row);
-        if (!bucket) continue;
+        const key = this.packKey(col, row);
+        const cell = this.cells.get(key);
+        if (!cell || cell.stamp !== this.stamp) continue;
 
-        for (const entity of bucket) {
-          const body = entity.body;
-          if (!body) continue;
+        const items = cell.items;
+        for (let i = 0; i < items.length; i++) {
+          const e = items[i];
+          const b = e.body;
+          if (!b) continue;
 
-          const dx = body.x - x;
-          const dy = body.y - y;
-          const distSquared = dx * dx + dy * dy;
-
-          if (distSquared <= radiusSquared) {
-            entitiesInRadius.push(entity);
+          const dx = b.x - x;
+          const dy = b.y - y;
+          if (dx * dx + dy * dy <= r2) {
+            result.push(e);
           }
         }
       }
     }
 
-    return entitiesInRadius;
+    return result;
   }
 
-  private encodeCell(col: number, row: number): string {
-    return `${col},${row}`;
-  }
-
-  private getCellsForEntity(x: number, y: number, radius: number): CellCoord[] {
-    const minCol = Math.floor((x - radius) * this.cellSizeInv);
-    const maxCol = Math.floor((x + radius) * this.cellSizeInv);
-    const minRow = Math.floor((y - radius) * this.cellSizeInv);
-    const maxRow = Math.floor((y + radius) * this.cellSizeInv);
-
-    const coords: CellCoord[] = [];
-    for (let col = minCol; col <= maxCol; col++) {
-      for (let row = minRow; row <= maxRow; row++) {
-        coords.push({ col, row });
-      }
-    }
-
-    return coords;
+  private packKey(col: number, row: number): number {
+    // Pack two small-ish signed ints into one 32-bit number
+    // Shift columns by 16 and XOR rows; add offset to handle negatives reliably
+    const c = (col + SpatialGrid.OFFSET) & 0xffff;
+    const r = (row + SpatialGrid.OFFSET) & 0xffff;
+    return (c << 16) ^ r;
   }
 }

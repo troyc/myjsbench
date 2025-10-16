@@ -100,7 +100,7 @@ export class World {
     }
 
     // Resolve collisions between entities
-    const checkedPairs = new Set<string>();
+    const checkedPairs = new Set<bigint>();
 
     for (const entityA of this.entities) {
       if (!entityA.body) continue;
@@ -113,27 +113,32 @@ export class World {
         // Create unique pair key to avoid checking same pair twice
         const idA = entityA.id;
         const idB = entityB.id;
-        const pairKey = idA < idB
-          ? `${idA},${idB}`
-          : `${idB},${idA}`;
+        const minId = idA < idB ? idA : idB;
+        const maxId = idA < idB ? idB : idA;
+        const pairKey = (BigInt(minId) << 32n) | BigInt(maxId);
 
         if (checkedPairs.has(pairKey)) continue;
         checkedPairs.add(pairKey);
 
-        // Check for collision
-        const dx = entityB.body.x - entityA.body.x;
-        const dy = entityB.body.y - entityA.body.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        const minDist = entityA.body.radius + entityB.body.radius;
+        // Check for collision using squared distance first (avoid sqrt)
+        const bodyA = entityA.body;
+        const bodyB = entityB.body;
+        const dx = bodyB.x - bodyA.x;
+        const dy = bodyB.y - bodyA.y;
+        const d2 = dx * dx + dy * dy;
+        const minDist = bodyA.radius + bodyB.radius;
+        const minDist2 = minDist * minDist;
 
-        if (distance < minDist && distance > 0) {
+        if (d2 < minDist2 && d2 > 0) {
+          const distance = Math.sqrt(d2);
+
           // Collision detected - resolve with elastic collision
           const nx = dx / distance;
           const ny = dy / distance;
 
           // Relative velocity
-          const dvx = entityA.body.vx - entityB.body.vx;
-          const dvy = entityA.body.vy - entityB.body.vy;
+          const dvx = bodyA.vx - bodyB.vx;
+          const dvy = bodyA.vy - bodyB.vy;
 
           // Velocity along collision normal
           const vn = dvx * nx + dvy * ny;
@@ -144,20 +149,21 @@ export class World {
             const impulse = vn;
 
             // Apply impulse
-            entityA.body.vx -= impulse * nx;
-            entityA.body.vy -= impulse * ny;
-            entityB.body.vx += impulse * nx;
-            entityB.body.vy += impulse * ny;
+            bodyA.vx -= impulse * nx;
+            bodyA.vy -= impulse * ny;
+            bodyB.vx += impulse * nx;
+            bodyB.vy += impulse * ny;
 
             // Separate overlapping entities
             const overlap = minDist - distance;
-            const separationX = nx * overlap / 2;
-            const separationY = ny * overlap / 2;
+            const half = 0.5;
+            const separationX = nx * overlap * half;
+            const separationY = ny * overlap * half;
 
-            entityA.body.x -= separationX;
-            entityA.body.y -= separationY;
-            entityB.body.x += separationX;
-            entityB.body.y += separationY;
+            bodyA.x -= separationX;
+            bodyA.y -= separationY;
+            bodyB.x += separationX;
+            bodyB.y += separationY;
           }
         }
       }
