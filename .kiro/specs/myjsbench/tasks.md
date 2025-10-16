@@ -66,8 +66,8 @@
 
 - [ ] 9. Implement UI controls and button interactions
   - Create HTML buttons for minus, plus, render, tick, and smooth controls
-  - Implement minus button handler to double entity count
-  - Implement plus button handler to halve entity count
+  - Implement minus button handler to halve entity count
+  - Implement plus button handler to double entity count
   - Implement render button handler to toggle rendering on/off with state display
   - Implement tick button handler to toggle between 30 and 120 tick rates with state display
   - Implement smooth button handler to toggle smooth rendering with state display

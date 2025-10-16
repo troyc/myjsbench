@@ -37,8 +37,8 @@ MyJSBench is a TypeScript-based physics simulation benchmark that visualizes bou
 
 #### Acceptance Criteria
 
-1. WHEN the user clicks the minus button, THE MyJSBench SHALL double the current number of balls
-2. WHEN the user clicks the plus button, THE MyJSBench SHALL halve the current number of balls
+1. WHEN the user clicks the minus button, THE MyJSBench SHALL halve the current number of balls
+2. WHEN the user clicks the plus button, THE MyJSBench SHALL double the current number of balls
 3. WHEN new balls are added, THE MyJSBench SHALL place them at random positions with random velocities of 64 pixels per second
 4. WHEN new balls are added, THE MyJSBench SHALL ensure no ball is placed in a colliding position with existing balls
 
