@@ -13,6 +13,27 @@ export class World {
     this.spatialGrid = new SpatialGrid(this.width, this.height, 24);
   }
 
+  getGridCellSize(): number {
+    return this.spatialGrid.getCellSize();
+  }
+
+  getGridCellCount(): number {
+    return this.spatialGrid.getTotalCellCount();
+  }
+
+  setGridCellSize(cellSize: number): number {
+    const minCellSize = 8;
+    const maxCellSize = Math.max(this.width, this.height);
+    const clampedSize = Math.min(Math.max(cellSize, minCellSize), maxCellSize);
+    this.spatialGrid.setCellSize(clampedSize);
+    return this.spatialGrid.getCellSize();
+  }
+
+  adjustGridCellSize(delta: number): number {
+    const nextSize = this.spatialGrid.getCellSize() + delta;
+    return this.setGridCellSize(nextSize);
+  }
+
   addEntity(entity: Entity): void {
     if (!entity.body) {
       this.entities.push(entity);
@@ -174,6 +195,7 @@ export class World {
     const cloned = new World();
     cloned.width = this.width;
     cloned.height = this.height;
+    cloned.setGridCellSize(this.getGridCellSize());
 
     // Deep copy entities
     for (const entity of this.entities) {

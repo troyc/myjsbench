@@ -1,3 +1,8 @@
+export interface TickSample {
+  time: number;
+  duration: number;
+}
+
 // AppState interface to track render, tick rate, smooth rendering, and timing state
 export interface AppState {
   renderEnabled: boolean;
@@ -7,6 +12,9 @@ export interface AppState {
   accumulator: number;
   fps: number;
   tickTime: number;
+  tickTimeAvg: number;
+  tickSamples: TickSample[];
+  tickDurationSum: number;
 }
 
 // Initialize application state
@@ -19,5 +27,8 @@ export function createAppState(): AppState {
     accumulator: 0,
     fps: 60,
     tickTime: 0,
+    tickTimeAvg: 0,
+    tickSamples: [],
+    tickDurationSum: 0,
   };
 }

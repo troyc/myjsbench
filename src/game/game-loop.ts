@@ -1,6 +1,7 @@
 import { World } from '../physics/world.js';
 import { Renderer } from '../rendering/renderer.js';
 import { AppState } from '../ui/app-state.js';
+import type { TickSample } from '../ui/app-state.js';
 
 export class GameLoop {
   private world: World;
@@ -34,7 +35,24 @@ export class GameLoop {
       this.world.update(tickInterval);
 
       // Calculate tick time in milliseconds
-      this.appState.tickTime = performance.now() - tickStart;
+      const tickEnd = performance.now();
+      const tickDuration = tickEnd - tickStart;
+      this.appState.tickTime = tickDuration;
+
+      const samples = this.appState.tickSamples;
+      samples.push({ time: tickEnd, duration: tickDuration });
+
+      let sum = this.appState.tickDurationSum + tickDuration;
+      const cutoff = tickEnd - 1000;
+      while (samples.length > 0) {
+        const oldest = samples[0];
+        if (oldest.time >= cutoff) break;
+        const removed = samples.shift() as TickSample;
+        sum -= removed.duration;
+      }
+
+      this.appState.tickDurationSum = sum;
+      this.appState.tickTimeAvg = samples.length > 0 ? sum / samples.length : 0;
 
       // Subtract tick interval from accumulator
       this.appState.accumulator -= tickInterval;
@@ -67,7 +85,12 @@ export class GameLoop {
     this.appState.fps = this.appState.fps * 0.9 + currentFps * 0.1;
 
     // Update performance metrics display
-    this.renderer.updateMetrics(this.appState.fps, this.appState.tickTime, this.world.entities.length);
+    this.renderer.updateMetrics(
+      this.appState.fps,
+      this.appState.tickTime,
+      this.appState.tickTimeAvg,
+      this.world.entities.length
+    );
 
     // Continue the loop
     requestAnimationFrame(this.run);

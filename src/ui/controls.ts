@@ -3,6 +3,16 @@ import { Entity, Body } from '../ecs/components.js';
 import { AppState } from './app-state.js';
 
 export function setupControls(world: World, appState: AppState): void {
+  const gridInfo = document.getElementById('grid-info');
+
+  const updateGridInfo = (): void => {
+    if (!gridInfo) return;
+
+    const cellSize = world.getGridCellSize();
+    const cellCount = world.getGridCellCount();
+    gridInfo.textContent = `Grid Cell: ${Math.round(cellSize)}px | Cells: ${cellCount}`;
+  };
+
   // Minus button handler to halve entity count
   const minusBtn = document.getElementById('minus-btn');
   if (minusBtn) {
@@ -33,6 +43,24 @@ export function setupControls(world: World, appState: AppState): void {
         
         world.addEntity(entity);
       }
+    });
+  }
+
+  // Grid cell size decrease button handler
+  const gridMinusBtn = document.getElementById('grid-minus-btn');
+  if (gridMinusBtn) {
+    gridMinusBtn.addEventListener('click', () => {
+      world.adjustGridCellSize(-8);
+      updateGridInfo();
+    });
+  }
+
+  // Grid cell size increase button handler
+  const gridPlusBtn = document.getElementById('grid-plus-btn');
+  if (gridPlusBtn) {
+    gridPlusBtn.addEventListener('click', () => {
+      world.adjustGridCellSize(8);
+      updateGridInfo();
     });
   }
 
@@ -90,4 +118,6 @@ export function setupControls(world: World, appState: AppState): void {
       }
     });
   }
+
+  updateGridInfo();
 }

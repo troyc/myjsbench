@@ -8,16 +8,43 @@ interface Cell {
 
 export class SpatialGrid {
   private cells: Map<number, Cell>;
-  private readonly cellSizeInv: number;
+  private cellSizeInv: number;
+  private cellSize: number;
+  private width: number;
+  private height: number;
   private stamp: number;
 
   // Use a fixed offset to keep packed keys unique for small negative indices
   private static readonly OFFSET = 1 << 15; // 32768
 
-  constructor(_width: number, _height: number, cellSize: number) {
+  constructor(width: number, height: number, cellSize: number) {
+    this.width = width;
+    this.height = height;
+    this.cellSize = cellSize;
     this.cellSizeInv = 1 / cellSize;
     this.cells = new Map<number, Cell>();
     this.stamp = 1;
+  }
+
+  setCellSize(cellSize: number): void {
+    if (cellSize <= 0) {
+      throw new Error('SpatialGrid cell size must be greater than zero.');
+    }
+
+    this.cellSize = cellSize;
+    this.cellSizeInv = 1 / cellSize;
+    this.cells.clear();
+    this.stamp = 1;
+  }
+
+  getCellSize(): number {
+    return this.cellSize;
+  }
+
+  getTotalCellCount(): number {
+    const cols = Math.ceil(this.width / this.cellSize);
+    const rows = Math.ceil(this.height / this.cellSize);
+    return cols * rows;
   }
 
   // O(1) clear using a frame-stamp; buckets reset lazily on next touch

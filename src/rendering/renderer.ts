@@ -5,6 +5,7 @@ export class Renderer {
   private app: Application;
   private ballsContainer: ParticleContainer;
   private uiContainer: Container;
+  private gridGraphics: Graphics;
   private activeSprites: Sprite[] = [];
   private spritePool: Sprite[] = [];
   private circleTexture: Texture;
@@ -14,6 +15,10 @@ export class Renderer {
   private ballCountText: Text;
   private maxTickRateText: Text;
   private textBackground: Graphics;
+  private lastGridCellSize = 0;
+  private lastGridWidth = 0;
+  private lastGridHeight = 0;
+  private lastGridScale = 0;
 
   constructor() {
     // Create PixiJS Application with full world dimensions
@@ -31,6 +36,11 @@ export class Renderer {
 
     // Stage setup for layering
     this.app.stage.sortableChildren = true;
+
+    // Grid overlay
+    this.gridGraphics = new Graphics();
+    this.gridGraphics.zIndex = -1;
+    this.app.stage.addChild(this.gridGraphics);
 
     // Containers: balls below, UI above
     this.ballsContainer = new ParticleContainer(10000, {
@@ -77,7 +87,7 @@ export class Renderer {
     // Create background for text readability
     this.textBackground = new Graphics();
     this.textBackground.beginFill(0x000000, 0.7); // Black with 70% opacity
-    this.textBackground.drawRoundedRect(5, 5, 250, 110, 5); // Rounded rectangle
+    this.textBackground.drawRoundedRect(5, 5, 320, 110, 5); // Rounded rectangle
     this.textBackground.endFill();
     this.textBackground.zIndex = -1; // ensure it stays behind text
     this.uiContainer.addChild(this.textBackground);
@@ -94,6 +104,8 @@ export class Renderer {
 
   // Render function to draw all entities as blue circles with black borders
   render(world: World): void {
+    this.updateGridOverlay(world);
+
     // Ensure we have enough sprites
     let used = 0;
     const entities = world.entities;
@@ -132,14 +144,62 @@ export class Renderer {
   }
 
   // Update performance metrics display
-  updateMetrics(fps: number, tickTime: number, ballCount: number): void {
+  updateMetrics(fps: number, tickTime: number, tickTimeAvg: number, ballCount: number): void {
     this.fpsText.text = `FPS: ${Math.round(fps)}`;
-    this.tickTimeText.text = `Tick: ${tickTime.toFixed(2)}ms`;
+    this.tickTimeText.text = `Tick: ${tickTime.toFixed(2)}ms (${tickTimeAvg.toFixed(2)}ms avg 1s)`;
     this.ballCountText.text = `Balls: ${ballCount}`;
     
-    // Calculate maximum possible tick rate (1000ms / tick time in ms)
-    const maxTickRate = tickTime > 0 ? Math.round(1000 / tickTime) : 0;
+    // Calculate maximum possible tick rate using rolling average (1000ms / tick time in ms)
+    const baseline = tickTimeAvg > 0 ? tickTimeAvg : tickTime;
+    const maxTickRate = baseline > 0 ? Math.round(1000 / baseline) : 0;
     this.maxTickRateText.text = `Max TPS: ${maxTickRate}`;
+  }
+
+  private updateGridOverlay(world: World): void {
+    const cellSize = world.getGridCellSize();
+    const width = world.width;
+    const height = world.height;
+    const scale = this.app.stage.scale.x || 1;
+
+    if (
+      cellSize === this.lastGridCellSize &&
+      width === this.lastGridWidth &&
+      height === this.lastGridHeight &&
+      scale === this.lastGridScale
+    ) {
+      return;
+    }
+
+    this.lastGridCellSize = cellSize;
+    this.lastGridWidth = width;
+    this.lastGridHeight = height;
+    this.lastGridScale = scale;
+
+    this.gridGraphics.clear();
+    if (cellSize <= 0) {
+      return;
+    }
+
+    const alpha = 0.25;
+    const color = 0x808080;
+    // Keep line thickness at ~1 screen pixel regardless of stage scale
+    const lineWidth = 1 / scale;
+    this.gridGraphics.lineStyle({ width: lineWidth, color, alpha, alignment: 0.5 });
+
+    // Offset lines by half a screen pixel in world units to reduce sampling gaps
+    const offset = 0.5 / scale;
+
+    for (let x = cellSize; x < width; x += cellSize) {
+      const xPos = x + offset;
+      this.gridGraphics.moveTo(xPos, 0);
+      this.gridGraphics.lineTo(xPos, height);
+    }
+
+    for (let y = cellSize; y < height; y += cellSize) {
+      const yPos = y + offset;
+      this.gridGraphics.moveTo(0, yPos);
+      this.gridGraphics.lineTo(width, yPos);
+    }
   }
 
   // Update scale to fit viewport
