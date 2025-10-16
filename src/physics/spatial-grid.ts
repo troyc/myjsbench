@@ -1,13 +1,20 @@
 import { Entity } from '../ecs/components.js';
 
 // Spatial Grid for efficient collision detection
+interface CellCoord {
+  col: number;
+  row: number;
+}
+
 export class SpatialGrid {
-  private cells: Map<string, Entity[]>;
-  private cellSize: number;
+  private cells: Map<number, Map<number, Entity[]>>;
+  private readonly cellSize: number;
+  private readonly cellSizeInv: number;
 
   constructor(_width: number, _height: number, cellSize: number) {
     this.cellSize = cellSize;
-    this.cells = new Map<string, Entity[]>();
+    this.cellSizeInv = 1 / cellSize;
+    this.cells = new Map<number, Map<number, Entity[]>>();
   }
 
   clear(): void {
@@ -15,37 +22,54 @@ export class SpatialGrid {
   }
 
   insert(entity: Entity): void {
-    if (!entity.body) return;
+    const body = entity.body;
+    if (!body) return;
 
-    const cellKeys = this.getCellsForEntity(entity);
-    for (const key of cellKeys) {
-      if (!this.cells.has(key)) {
-        this.cells.set(key, []);
+    const cellCoords = this.getCellsForEntity(body.x, body.y, body.radius);
+    for (const { col, row } of cellCoords) {
+      let column = this.cells.get(col);
+      if (!column) {
+        column = new Map<number, Entity[]>();
+        this.cells.set(col, column);
       }
-      this.cells.get(key)!.push(entity);
+
+      let bucket = column.get(row);
+      if (!bucket) {
+        bucket = [];
+        column.set(row, bucket);
+      }
+
+      bucket.push(entity);
     }
   }
 
   query(entity: Entity): Entity[] {
-    if (!entity.body) return [];
+    const body = entity.body;
+    if (!body) return [];
 
     const nearbyEntities = new Set<Entity>();
-    const cellKeys = this.getCellsForEntity(entity);
+    const visitedCells = new Set<string>();
+    const cellCoords = this.getCellsForEntity(body.x, body.y, body.radius);
 
-    for (const key of cellKeys) {
-      const [col, row] = key.split(',').map(Number);
-
-      // Check same cell and adjacent cells
+    for (const { col, row } of cellCoords) {
       for (let dc = -1; dc <= 1; dc++) {
         for (let dr = -1; dr <= 1; dr++) {
-          const adjacentKey = this.getCellKey(col + dc, row + dr);
-          const entitiesInCell = this.cells.get(adjacentKey);
+          const neighborCol = col + dc;
+          const neighborRow = row + dr;
+          const key = this.encodeCell(neighborCol, neighborRow);
 
-          if (entitiesInCell) {
-            for (const e of entitiesInCell) {
-              if (e !== entity) {
-                nearbyEntities.add(e);
-              }
+          if (visitedCells.has(key)) continue;
+          visitedCells.add(key);
+
+          const column = this.cells.get(neighborCol);
+          if (!column) continue;
+
+          const bucket = column.get(neighborRow);
+          if (!bucket) continue;
+
+          for (const other of bucket) {
+            if (other !== entity) {
+              nearbyEntities.add(other);
             }
           }
         }
@@ -60,27 +84,29 @@ export class SpatialGrid {
     const radiusSquared = radius * radius;
 
     // Determine which cells to check
-    const minCol = Math.floor((x - radius) / this.cellSize);
-    const maxCol = Math.floor((x + radius) / this.cellSize);
-    const minRow = Math.floor((y - radius) / this.cellSize);
-    const maxRow = Math.floor((y + radius) / this.cellSize);
+    const minCol = Math.floor((x - radius) * this.cellSizeInv);
+    const maxCol = Math.floor((x + radius) * this.cellSizeInv);
+    const minRow = Math.floor((y - radius) * this.cellSizeInv);
+    const maxRow = Math.floor((y + radius) * this.cellSizeInv);
 
     for (let col = minCol; col <= maxCol; col++) {
+      const column = this.cells.get(col);
+      if (!column) continue;
+
       for (let row = minRow; row <= maxRow; row++) {
-        const key = this.getCellKey(col, row);
-        const entitiesInCell = this.cells.get(key);
+        const bucket = column.get(row);
+        if (!bucket) continue;
 
-        if (entitiesInCell) {
-          for (const entity of entitiesInCell) {
-            if (!entity.body) continue;
+        for (const entity of bucket) {
+          const body = entity.body;
+          if (!body) continue;
 
-            const dx = entity.body.x - x;
-            const dy = entity.body.y - y;
-            const distSquared = dx * dx + dy * dy;
+          const dx = body.x - x;
+          const dy = body.y - y;
+          const distSquared = dx * dx + dy * dy;
 
-            if (distSquared <= radiusSquared) {
-              entitiesInRadius.push(entity);
-            }
+          if (distSquared <= radiusSquared) {
+            entitiesInRadius.push(entity);
           }
         }
       }
@@ -89,26 +115,23 @@ export class SpatialGrid {
     return entitiesInRadius;
   }
 
-  private getCellKey(col: number, row: number): string {
+  private encodeCell(col: number, row: number): string {
     return `${col},${row}`;
   }
 
-  private getCellsForEntity(entity: Entity): string[] {
-    if (!entity.body) return [];
+  private getCellsForEntity(x: number, y: number, radius: number): CellCoord[] {
+    const minCol = Math.floor((x - radius) * this.cellSizeInv);
+    const maxCol = Math.floor((x + radius) * this.cellSizeInv);
+    const minRow = Math.floor((y - radius) * this.cellSizeInv);
+    const maxRow = Math.floor((y + radius) * this.cellSizeInv);
 
-    const { x, y, radius } = entity.body;
-    const minCol = Math.floor((x - radius) / this.cellSize);
-    const maxCol = Math.floor((x + radius) / this.cellSize);
-    const minRow = Math.floor((y - radius) / this.cellSize);
-    const maxRow = Math.floor((y + radius) / this.cellSize);
-
-    const keys: string[] = [];
+    const coords: CellCoord[] = [];
     for (let col = minCol; col <= maxCol; col++) {
       for (let row = minRow; row <= maxRow; row++) {
-        keys.push(this.getCellKey(col, row));
+        coords.push({ col, row });
       }
     }
 
-    return keys;
+    return coords;
   }
 }
