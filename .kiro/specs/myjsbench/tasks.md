@@ -64,7 +64,7 @@
   - Discard cloned world after rendering
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 9. Implement UI controls and button interactions
+- [x] 9. Implement UI controls and button interactions
   - Create HTML buttons for minus, plus, render, tick, and smooth controls
   - Implement minus button handler to halve entity count
   - Implement plus button handler to double entity count
@@ -73,14 +73,14 @@
   - Implement smooth button handler to toggle smooth rendering with state display
   - _Requirements: 2.1, 2.2, 4.1, 4.4, 5.1, 5.3, 6.1, 6.5_
 
-- [ ] 10. Implement FPS and performance metrics display
+- [x] 10. Implement FPS and performance metrics display
   - Calculate FPS based on frame timing using exponential moving average
   - Update FPS text display each frame in upper left corner
   - Display tick time in milliseconds in upper left corner
   - Ensure metrics update in real-time during simulation
   - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-- [ ] 11. Initialize simulation with starting entities
+- [x] 11. Initialize simulation with starting entities
   - Create initial 4 entities with 8 pixel radius
   - Assign random positions within screen bounds
   - Assign random velocities at 64 pixels per second

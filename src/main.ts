@@ -389,6 +389,11 @@ tickTimeText.x = 10;
 tickTimeText.y = 35;
 app.stage.addChild(tickTimeText);
 
+const ballCountText = new Text('Balls: 0', textStyle);
+ballCountText.x = 10;
+ballCountText.y = 60;
+app.stage.addChild(ballCountText);
+
 // Active graphics objects for current frame
 let activeGraphics: Graphics[] = [];
 
@@ -419,9 +424,10 @@ export function render(world: World): void {
 }
 
 // Update performance metrics display
-export function updateMetrics(fps: number, tickTime: number): void {
+export function updateMetrics(fps: number, tickTime: number, ballCount: number): void {
   fpsText.text = `FPS: ${Math.round(fps)}`;
   tickTimeText.text = `Tick: ${tickTime.toFixed(2)}ms`;
+  ballCountText.text = `Balls: ${ballCount}`;
 }
 
 // AppState interface to track render, tick rate, smooth rendering, and timing state
@@ -503,10 +509,90 @@ function gameLoop(currentTime: number): void {
   appState.fps = appState.fps * 0.9 + currentFps * 0.1;
 
   // Update performance metrics display
-  updateMetrics(appState.fps, appState.tickTime);
+  updateMetrics(appState.fps, appState.tickTime, world.entities.length);
 
   // Continue the loop
   requestAnimationFrame(gameLoop);
+}
+
+// Initialize simulation with starting entities (4 balls with 8 pixel radius)
+for (let i = 0; i < 4; i++) {
+  const angle = Math.random() * Math.PI * 2;
+  const speed = 64; // 64 pixels per second
+  
+  const entity = new Entity(
+    new Body(
+      0, // x position (will be set by addEntity)
+      0, // y position (will be set by addEntity)
+      Math.cos(angle) * speed, // vx
+      Math.sin(angle) * speed, // vy
+      8 // radius
+    )
+  );
+  
+  world.addEntity(entity);
+}
+
+// UI Controls and Button Interactions
+
+// Minus button handler to halve entity count
+const minusBtn = document.getElementById('minus-btn');
+if (minusBtn) {
+  minusBtn.addEventListener('click', () => {
+    world.removeEntities();
+  });
+}
+
+// Plus button handler to double entity count
+const plusBtn = document.getElementById('plus-btn');
+if (plusBtn) {
+  plusBtn.addEventListener('click', () => {
+    const currentCount = world.entities.length;
+    
+    for (let i = 0; i < currentCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 64; // 64 pixels per second
+      
+      const entity = new Entity(
+        new Body(
+          0, // x position (will be set by addEntity)
+          0, // y position (will be set by addEntity)
+          Math.cos(angle) * speed, // vx
+          Math.sin(angle) * speed, // vy
+          8 // radius
+        )
+      );
+      
+      world.addEntity(entity);
+    }
+  });
+}
+
+// Render button handler to toggle rendering on/off with state display
+const renderBtn = document.getElementById('render-btn');
+if (renderBtn) {
+  renderBtn.addEventListener('click', () => {
+    appState.renderEnabled = !appState.renderEnabled;
+    renderBtn.textContent = `Render: ${appState.renderEnabled ? 'ON' : 'OFF'}`;
+  });
+}
+
+// Tick button handler to toggle between 30 and 120 tick rates with state display
+const tickBtn = document.getElementById('tick-btn');
+if (tickBtn) {
+  tickBtn.addEventListener('click', () => {
+    appState.tickRate = appState.tickRate === 30 ? 120 : 30;
+    tickBtn.textContent = `Tick: ${appState.tickRate}`;
+  });
+}
+
+// Smooth button handler to toggle smooth rendering with state display
+const smoothBtn = document.getElementById('smooth-btn');
+if (smoothBtn) {
+  smoothBtn.addEventListener('click', () => {
+    appState.smoothEnabled = !appState.smoothEnabled;
+    smoothBtn.textContent = `Smooth: ${appState.smoothEnabled ? 'ON' : 'OFF'}`;
+  });
 }
 
 // Start the game loop
