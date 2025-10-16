@@ -30,7 +30,7 @@ export function setupControls(world: World, appState: AppState): void {
             8 // radius
           )
         );
-
+        
         world.addEntity(entity);
       }
     });
