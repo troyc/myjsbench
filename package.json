@@ -4,13 +4,15 @@
   "description": "TypeScript-based physics simulation benchmark with PixiJS",
   "type": "module",
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "pixi.js": "^7.3.2"
   },
   "devDependencies": {
-    "typescript": "^5.3.3"
+    "typescript": "^5.9.3",
+    "vite": "^7.1.10"
   }
 }

@@ -4,8 +4,7 @@ node_modules/
 # Build outputs
 dist/
 build/
-*.js
-*.js.map
+*.local
 
 # TypeScript cache
 *.tsbuildinfo
