@@ -25,9 +25,17 @@ export class Payload {
 }
 
 export class Entity {
+  private static nextId = 1;
+  public readonly id: number;
+
   constructor(
     public body?: Body,
     public hp?: HP,
-    public payload?: Payload
-  ) { }
+    public payload?: Payload,
+    id?: number
+  ) {
+    const assignedId = id ?? Entity.nextId++;
+    this.id = assignedId;
+    Entity.nextId = Math.max(Entity.nextId, assignedId + 1);
+  }
 }

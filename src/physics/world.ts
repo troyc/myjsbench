@@ -111,9 +111,11 @@ export class World {
         if (!entityB.body) continue;
 
         // Create unique pair key to avoid checking same pair twice
-        const pairKey = entityA < entityB
-          ? `${this.entities.indexOf(entityA)},${this.entities.indexOf(entityB)}`
-          : `${this.entities.indexOf(entityB)},${this.entities.indexOf(entityA)}`;
+        const idA = entityA.id;
+        const idB = entityB.id;
+        const pairKey = idA < idB
+          ? `${idA},${idB}`
+          : `${idB},${idA}`;
 
         if (checkedPairs.has(pairKey)) continue;
         checkedPairs.add(pairKey);
@@ -169,7 +171,7 @@ export class World {
 
     // Deep copy entities
     for (const entity of this.entities) {
-      const clonedEntity = new Entity();
+      const clonedEntity = new Entity(undefined, undefined, undefined, entity.id);
 
       if (entity.body) {
         clonedEntity.body = new Body(
