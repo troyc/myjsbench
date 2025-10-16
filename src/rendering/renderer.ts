@@ -26,7 +26,7 @@ export class Renderer {
   private textBackground: Graphics;
 
   constructor() {
-    // Create PixiJS Application with 2500x1200 canvas
+    // Create PixiJS Application with full world dimensions
     this.app = new Application({
       width: 2500,
       height: 1200,
@@ -71,6 +71,12 @@ export class Renderer {
     this.textBackground.drawRoundedRect(5, 5, 250, 110, 5); // Rounded rectangle
     this.textBackground.endFill();
     this.app.stage.addChild(this.textBackground);
+
+    // Apply initial scaling to fit viewport (after text elements are created)
+    this.updateScale();
+
+    // Handle window resize
+    window.addEventListener('resize', () => this.updateScale());
   }
 
   // Render function to draw all entities as blue circles with black borders
@@ -121,5 +127,47 @@ export class Renderer {
     // Calculate maximum possible tick rate (1000ms / tick time in ms)
     const maxTickRate = tickTime > 0 ? Math.round(1000 / tickTime) : 0;
     this.maxTickRateText.text = `Max Tick Rate: ${maxTickRate}`;
+  }
+
+  // Update scale to fit viewport
+  private updateScale(): void {
+    const maxWidth = window.innerWidth - 40; // 40px for padding
+    const maxHeight = window.innerHeight * 0.8; // 80% of viewport height
+    
+    // Calculate scale to fit within viewport while maintaining aspect ratio
+    const scaleX = maxWidth / 2500;
+    const scaleY = maxHeight / 1200;
+    const scale = Math.min(scaleX, scaleY, 1); // Don't scale up beyond 1:1
+    
+    // Apply scale to stage
+    this.app.stage.scale.set(scale, scale);
+    
+    // Counter-scale text elements to maintain original size and adjust positions
+    const counterScale = 1 / scale;
+    
+    // Reset positions to original values and apply counter-scaling
+    this.fpsText.scale.set(counterScale, counterScale);
+    this.fpsText.x = 10 * counterScale;
+    this.fpsText.y = 10 * counterScale;
+    
+    this.tickTimeText.scale.set(counterScale, counterScale);
+    this.tickTimeText.x = 10 * counterScale;
+    this.tickTimeText.y = 35 * counterScale;
+    
+    this.ballCountText.scale.set(counterScale, counterScale);
+    this.ballCountText.x = 10 * counterScale;
+    this.ballCountText.y = 60 * counterScale;
+    
+    this.maxTickRateText.scale.set(counterScale, counterScale);
+    this.maxTickRateText.x = 10 * counterScale;
+    this.maxTickRateText.y = 85 * counterScale;
+    
+    // Counter-scale and reposition background
+    this.textBackground.scale.set(counterScale, counterScale);
+    this.textBackground.x = 5 * counterScale;
+    this.textBackground.y = 5 * counterScale;
+    
+    // Resize renderer to match scaled dimensions
+    this.app.renderer.resize(2500 * scale, 1200 * scale);
   }
 }
