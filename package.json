@@ -1,0 +1,16 @@
+{
+  "name": "myjsbench",
+  "version": "1.0.0",
+  "description": "TypeScript-based physics simulation benchmark with PixiJS",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "pixi.js": "^7.3.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}
