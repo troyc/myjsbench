@@ -1,6 +1,5 @@
-import { Entity } from '../ecs/components.js';
+import { Entity } from './components.js';
 
-// Spatial Grid for efficient collision detection (optimized)
 interface Cell {
   items: Entity[];
   stamp: number;
@@ -14,8 +13,7 @@ export class SpatialGrid {
   private height: number;
   private stamp: number;
 
-  // Use a fixed offset to keep packed keys unique for small negative indices
-  private static readonly OFFSET = 1 << 15; // 32768
+  private static readonly OFFSET = 1 << 15;
 
   constructor(width: number, height: number, cellSize: number) {
     this.width = width;
@@ -47,10 +45,8 @@ export class SpatialGrid {
     return cols * rows;
   }
 
-  // O(1) clear using a frame-stamp; buckets reset lazily on next touch
   clear(): void {
     this.stamp++;
-    // Very long runs: occasionally reset to avoid overflow and memory bloat
     if (this.stamp === Number.MAX_SAFE_INTEGER) {
       this.cells.clear();
       this.stamp = 1;
@@ -84,7 +80,6 @@ export class SpatialGrid {
     }
   }
 
-  // Returns potential neighbors of the given entity by scanning a bounded region
   query(entity: Entity): Entity[] {
     const body = entity.body;
     if (!body) return [];
@@ -154,8 +149,6 @@ export class SpatialGrid {
   }
 
   private packKey(col: number, row: number): number {
-    // Pack two small-ish signed ints into one 32-bit number
-    // Shift columns by 16 and XOR rows; add offset to handle negatives reliably
     const c = (col + SpatialGrid.OFFSET) & 0xffff;
     const r = (row + SpatialGrid.OFFSET) & 0xffff;
     return (c << 16) ^ r;

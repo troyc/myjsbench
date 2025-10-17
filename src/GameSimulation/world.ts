@@ -1,15 +1,13 @@
-import { Entity, Body, HP, Payload } from '../ecs/components.js';
+import { Entity, Body, HP, Payload } from './components.js';
 import { SpatialGrid } from './spatial-grid.js';
 
-// World class for entity management
 export class World {
   entities: Entity[] = [];
-  width: number = 2500;
-  height: number = 1200;
+  width = 2500;
+  height = 1200;
   spatialGrid: SpatialGrid;
 
   constructor() {
-    // Cell size of 24 pixels (3x the ball radius of 8)
     this.spatialGrid = new SpatialGrid(this.width, this.height, 24);
   }
 
@@ -43,12 +41,10 @@ export class World {
     const radius = entity.body.radius;
     let placed = false;
 
-    // Try up to 100 times to find a non-colliding position
     for (let attempt = 0; attempt < 100; attempt++) {
       const x = Math.random() * this.width;
       const y = Math.random() * this.height;
 
-      // Check if this position collides with any existing entity
       let collides = false;
       for (const other of this.entities) {
         if (!other.body) continue;
@@ -71,7 +67,6 @@ export class World {
       }
     }
 
-    // After 100 attempts, force spawn at the last random position
     if (!placed) {
       entity.body.x = Math.random() * this.width;
       entity.body.y = Math.random() * this.height;
@@ -85,19 +80,23 @@ export class World {
     this.entities = this.entities.slice(0, halfCount);
   }
 
+  scaleRadii(factor: number): void {
+    for (const entity of this.entities) {
+      if (entity.body) {
+        entity.body.radius *= factor;
+      }
+    }
+  }
+
   update(deltaTime: number): void {
-    // Clear spatial grid
     this.spatialGrid.clear();
 
-    // Update entity positions and insert into spatial grid
     for (const entity of this.entities) {
       if (!entity.body) continue;
 
-      // Update position based on velocity
       entity.body.x += entity.body.vx * deltaTime;
       entity.body.y += entity.body.vy * deltaTime;
 
-      // Wall collision detection and reflection
       const radius = entity.body.radius;
 
       if (entity.body.x - radius < 0) {
@@ -116,11 +115,9 @@ export class World {
         entity.body.vy = -Math.abs(entity.body.vy);
       }
 
-      // Insert into spatial grid
       this.spatialGrid.insert(entity);
     }
 
-    // Resolve collisions between entities
     const checkedPairs = new Set<bigint>();
 
     for (const entityA of this.entities) {
@@ -131,7 +128,6 @@ export class World {
       for (const entityB of nearby) {
         if (!entityB.body) continue;
 
-        // Create unique pair key to avoid checking same pair twice
         const idA = entityA.id;
         const idB = entityB.id;
         const minId = idA < idB ? idA : idB;
@@ -141,7 +137,6 @@ export class World {
         if (checkedPairs.has(pairKey)) continue;
         checkedPairs.add(pairKey);
 
-        // Check for collision using squared distance first (avoid sqrt)
         const bodyA = entityA.body;
         const bodyB = entityB.body;
         const dx = bodyB.x - bodyA.x;
@@ -152,34 +147,25 @@ export class World {
 
         if (d2 < minDist2 && d2 > 0) {
           const distance = Math.sqrt(d2);
-
-          // Collision detected - resolve with elastic collision
           const nx = dx / distance;
           const ny = dy / distance;
 
-          // Relative velocity
           const dvx = bodyA.vx - bodyB.vx;
           const dvy = bodyA.vy - bodyB.vy;
 
-          // Velocity along collision normal
           const vn = dvx * nx + dvy * ny;
 
-          // Only resolve if entities are moving towards each other
           if (vn > 0) {
-            // Impulse for elastic collision (restitution = 1.0)
             const impulse = vn;
 
-            // Apply impulse
             bodyA.vx -= impulse * nx;
             bodyA.vy -= impulse * ny;
             bodyB.vx += impulse * nx;
             bodyB.vy += impulse * ny;
 
-            // Separate overlapping entities
             const overlap = minDist - distance;
-            const half = 0.5;
-            const separationX = nx * overlap * half;
-            const separationY = ny * overlap * half;
+            const separationX = nx * overlap * 0.5;
+            const separationY = ny * overlap * 0.5;
 
             bodyA.x -= separationX;
             bodyA.y -= separationY;
@@ -197,7 +183,6 @@ export class World {
     cloned.height = this.height;
     cloned.setGridCellSize(this.getGridCellSize());
 
-    // Deep copy entities
     for (const entity of this.entities) {
       const clonedEntity = new Entity(undefined, undefined, undefined, entity.id);
 

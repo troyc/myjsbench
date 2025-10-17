@@ -39,11 +39,11 @@ npm run typecheck
 ```
 
 ## Project Structure
-- `src/main.ts`: entry point and initial entity spawn
-- `src/game/game-loop.ts`: fixed timestep, smoothing, metrics sampling
-- `src/physics/world.ts`: entity management and collision resolution
-- `src/physics/spatial-grid.ts`: spatial grid with adjustable cell size
-- `src/rendering/renderer.ts`: PixiJS renderer + HUD + grid overlay
-- `src/ui/controls.ts`: wiring for UI buttons and grid info
-- `src/ui/app-state.ts`: shared app state for loop + UI
+- `src/main.ts`: Vite entry that bootstraps the harness
+- `src/GameSimulation/`: pure simulation core (entities, spatial grid, world, commands)
+- `src/harness/bootstrap.ts`: wires the simulation, renderer, controls, and runner
+- `src/harness/simulation-runner.ts`: fixed timestep controller with smoothing support
+- `src/harness/renderer.ts`: PixiJS renderer + HUD + grid overlay (consumes simulation state)
+- `src/harness/controls.ts`: DOM wiring for UI buttons and command dispatch
+- `src/harness/app-state.ts`: shared app state for runner + UI
 - `index.html`: controls and canvas container

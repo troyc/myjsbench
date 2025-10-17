@@ -3,7 +3,6 @@ export interface TickSample {
   duration: number;
 }
 
-// AppState interface to track render, tick rate, smooth rendering, and timing state
 export interface AppState {
   renderEnabled: boolean;
   tickRate: 30 | 120;
@@ -17,7 +16,6 @@ export interface AppState {
   tickDurationSum: number;
 }
 
-// Initialize application state
 export function createAppState(): AppState {
   return {
     renderEnabled: true,
