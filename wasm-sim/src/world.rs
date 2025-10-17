@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use ahash::AHashSet;
 
 use crate::{rng::Lcg, spatial_grid::SpatialGrid};
 
@@ -124,19 +124,16 @@ impl World {
             self.spatial_grid.insert(i, body.x, body.y, radius);
         }
 
-        let mut nearby = Vec::new();
-        let mut seen = HashSet::new();
+        let mut seen = AHashSet::new();
 
         for i in 0..self.entities.len() {
             let Some(body_a) = self.entities[i].body.as_mut() else {
                 continue;
             };
 
-            nearby.clear();
-            seen.clear();
-
-            self.spatial_grid
-                .query(body_a.x, body_a.y, body_a.radius, &mut nearby, &mut seen);
+            let nearby = self
+                .spatial_grid
+                .query(body_a.x, body_a.y, body_a.radius, &mut seen);
 
             for &j in &nearby {
                 if j <= i {

@@ -7,3 +7,5 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
+smallvec = "1"
+ahash = { version = "0.8", default-features = false, features = ["std", "compile-time-rng"] }

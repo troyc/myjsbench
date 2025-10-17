@@ -4,6 +4,10 @@
   "description": "TypeScript-based physics simulation benchmark with PixiJS",
   "type": "module",
   "scripts": {
+    "build:wasm": "node ./scripts/build-wasm.mjs",
+    "predev": "npm run build:wasm",
+    "prebuild": "npm run build:wasm",
+    "prepreview": "npm run build:wasm",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",

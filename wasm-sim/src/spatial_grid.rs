@@ -1,4 +1,5 @@
-use std::collections::HashSet;
+use ahash::AHashSet;
+use smallvec::SmallVec;
 
 pub(crate) struct SpatialGrid {
     // Preallocated 2D grid stored row-major in a flat Vec
@@ -16,8 +17,11 @@ pub(crate) struct SpatialGrid {
     seen_stamp: u32,
 }
 
+const CELL_INLINE_CAP: usize = 2;
+const QUERY_INLINE_CAP: usize = 2;
+
 struct Cell {
-    items: Vec<usize>,
+    items: SmallVec<[usize; CELL_INLINE_CAP]>,
     stamp: u32,
 }
 
@@ -28,7 +32,7 @@ impl SpatialGrid {
         let mut cells = Vec::with_capacity((cols as usize) * (rows as usize));
         for _ in 0..(cols as usize) * (rows as usize) {
             cells.push(Cell {
-                items: Vec::new(),
+                items: SmallVec::new(),
                 stamp: 0,
             });
         }
@@ -61,7 +65,7 @@ impl SpatialGrid {
             self.cells.reserve((cols as usize) * (rows as usize));
             for _ in 0..(cols as usize) * (rows as usize) {
                 self.cells.push(Cell {
-                    items: Vec::new(),
+                    items: SmallVec::new(),
                     stamp: 0,
                 });
             }
@@ -116,11 +120,6 @@ impl SpatialGrid {
         (y * self.cell_size_inv).floor() as i32
     }
 
-    #[inline]
-    fn idx(&self, col: i32, row: i32) -> usize {
-        (row as usize) * (self.cols as usize) + (col as usize)
-    }
-
     pub(crate) fn insert(&mut self, index: usize, x: f32, y: f32, radius: f32) {
         let mut min_col = self.to_col(x - radius);
         let mut max_col = self.to_col(x + radius);
@@ -133,9 +132,12 @@ impl SpatialGrid {
         min_row = Self::clamp_index(min_row, self.rows);
         max_row = Self::clamp_index(max_row, self.rows);
 
+        let cols = self.cols as usize;
         for row in min_row..=max_row {
+            let base = (row as usize) * cols;
             for col in min_col..=max_col {
-                let cell = &mut self.cells[self.idx(col, row)];
+                let idx = base + (col as usize);
+                let cell = &mut self.cells[idx];
                 if cell.stamp != self.stamp {
                     cell.items.clear();
                     cell.stamp = self.stamp;
@@ -150,11 +152,8 @@ impl SpatialGrid {
         x: f32,
         y: f32,
         radius: f32,
-        out: &mut Vec<usize>,
-        seen_external: &mut HashSet<usize>,
-    ) {
-        // Maintain signature for compatibility; we handle dedupe internally
-        out.clear();
+        seen_external: &mut AHashSet<usize>,
+    ) -> SmallVec<[usize; QUERY_INLINE_CAP]> {
         seen_external.clear();
 
         // Advance the per-query stamp and reset marks on wrap
@@ -163,6 +162,8 @@ impl SpatialGrid {
             self.seen_marks.fill(0);
             self.seen_stamp = 1;
         }
+
+        let mut results = SmallVec::<[usize; QUERY_INLINE_CAP]>::new();
 
         let mut min_col = self.to_col(x - radius);
         let mut max_col = self.to_col(x + radius);
@@ -175,22 +176,31 @@ impl SpatialGrid {
         min_row = Self::clamp_index(min_row, self.rows);
         max_row = Self::clamp_index(max_row, self.rows);
 
+        let cols = self.cols as usize;
         for row in min_row..=max_row {
+            let base = (row as usize) * cols;
             for col in min_col..=max_col {
-                let cell = &self.cells[self.idx(col, row)];
+                let idx = base + (col as usize);
+                let cell = &self.cells[idx];
                 if cell.stamp != self.stamp {
                     continue;
                 }
                 for &idx in &cell.items {
-                    if idx >= self.seen_marks.len() {
-                        self.seen_marks.resize(idx + 1, 0);
-                    }
-                    if self.seen_marks[idx] != self.seen_stamp {
-                        self.seen_marks[idx] = self.seen_stamp;
-                        out.push(idx);
+                    if idx < self.seen_marks.len() {
+                        if self.seen_marks[idx] != self.seen_stamp {
+                            self.seen_marks[idx] = self.seen_stamp;
+                            results.push(idx);
+                        }
+                    } else {
+                        // Avoid growing a giant marks array for sparse large indices; use hash set fallback
+                        if seen_external.insert(idx) {
+                            results.push(idx);
+                        }
                     }
                 }
             }
         }
+
+        results
     }
 }
