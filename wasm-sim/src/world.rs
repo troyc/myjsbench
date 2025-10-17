@@ -2,7 +2,7 @@ use ahash::AHashSet;
 
 use crate::{rng::Lcg, spatial_grid::SpatialGrid};
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub(crate) struct Body {
     pub(crate) x: f32,
     pub(crate) y: f32,
@@ -11,7 +11,7 @@ pub(crate) struct Body {
     pub(crate) radius: f32,
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub(crate) struct Entity {
     pub(crate) id: u32,
     pub(crate) body: Option<Body>,
