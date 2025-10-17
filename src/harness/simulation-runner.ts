@@ -1,14 +1,14 @@
-import { GameSimulation, SimulationCommand, GameSimulationState } from '../GameSimulation/GameSimulation.js';
+import type { SimulationCommand, GameSimulationState, SimulationBackend } from '../GameSimulation/GameSimulation.js';
 import { AppState, TickSample } from './app-state.js';
 import { Renderer } from './renderer.js';
 
 export class SimulationRunner {
-  private simulation: GameSimulation;
+  private simulation: SimulationBackend;
   private renderer: Renderer;
   private appState: AppState;
   private commandQueue: SimulationCommand[] = [];
 
-  constructor(simulation: GameSimulation, renderer: Renderer, appState: AppState) {
+  constructor(simulation: SimulationBackend, renderer: Renderer, appState: AppState) {
     this.simulation = simulation;
     this.renderer = renderer;
     this.appState = appState;
@@ -21,6 +21,17 @@ export class SimulationRunner {
 
   getSimulationState(): GameSimulationState {
     return this.simulation.get_state();
+  }
+
+  setSimulation(simulation: SimulationBackend): void {
+    this.simulation = simulation;
+    this.commandQueue = [];
+    this.appState.accumulator = 0;
+    this.appState.lastTime = performance.now();
+    this.appState.tickSamples.length = 0;
+    this.appState.tickDurationSum = 0;
+    this.appState.tickTime = 0;
+    this.appState.tickTimeAvg = 0;
   }
 
   run = (currentTime: number): void => {

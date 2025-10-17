@@ -15,6 +15,12 @@ export type SimulationCommand =
   | { type: 'set_grid_cell_size'; size: number }
   | { type: 'scale_radius'; factor: number };
 
+export interface SimulationBackend {
+  next_tick(commands: SimulationCommand[], deltaTime: number): void;
+  get_state(): GameSimulationState;
+  preview_state(deltaTime: number): GameSimulationState;
+}
+
 export class GameSimulation {
   private world: World;
 

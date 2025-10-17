@@ -38,6 +38,10 @@
     button:active {
       background-color: #d0d0d0;
     }
+    button:disabled {
+      opacity: 0.6;
+      cursor: progress;
+    }
     #canvas-container {
       border: 2px solid #333;
       background-color: #fff;
@@ -64,6 +68,7 @@
       <button id="render-btn">Render: ON</button>
       <button id="tick-btn">Tick: 30</button>
       <button id="smooth-btn">Smooth: OFF</button>
+      <button id="mode-btn">Mode: JS</button>
     </div>
     <div id="grid-info">Grid Cell: --px | Cells: --</div>
     <div id="canvas-container"></div>

@@ -14,6 +14,7 @@ export interface AppState {
   tickTimeAvg: number;
   tickSamples: TickSample[];
   tickDurationSum: number;
+  simulationMode: 'js' | 'wasm';
 }
 
 export function createAppState(): AppState {
@@ -28,5 +29,6 @@ export function createAppState(): AppState {
     tickTimeAvg: 0,
     tickSamples: [],
     tickDurationSum: 0,
+    simulationMode: 'js',
   };
 }

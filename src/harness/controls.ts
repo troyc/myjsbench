@@ -2,7 +2,15 @@ import { SimulationRunner } from './simulation-runner.js';
 import { AppState } from './app-state.js';
 import { SimulationCommand } from '../GameSimulation/GameSimulation.js';
 
-export function setupControls(runner: SimulationRunner, appState: AppState): void {
+export interface ControlCallbacks {
+  toggleSimulationMode: () => Promise<'js' | 'wasm'>;
+}
+
+export function setupControls(
+  runner: SimulationRunner,
+  appState: AppState,
+  callbacks: ControlCallbacks
+): void {
   const gridInfo = document.getElementById('grid-info');
 
   const updateGridInfo = (): void => {
@@ -107,6 +115,33 @@ export function setupControls(runner: SimulationRunner, appState: AppState): voi
       const scaleFactor = Math.sqrt(2);
       queueCommands([{ type: 'scale_radius', factor: scaleFactor }]);
     });
+  }
+
+  const modeBtn = document.getElementById('mode-btn') as HTMLButtonElement | null;
+  const updateModeButton = (mode: 'js' | 'wasm'): void => {
+    if (!modeBtn) return;
+    const label = mode === 'js' ? 'JS' : 'WASM';
+    modeBtn.textContent = `Mode: ${label}`;
+  };
+
+  if (modeBtn) {
+    modeBtn.addEventListener('click', async () => {
+      modeBtn.disabled = true;
+      modeBtn.textContent = 'Mode: Loading...';
+      try {
+        const mode = await callbacks.toggleSimulationMode();
+        appState.simulationMode = mode;
+        updateModeButton(mode);
+        requestAnimationFrame(updateGridInfo);
+      } catch (error) {
+        console.error('Failed to toggle simulation mode', error);
+        updateModeButton(appState.simulationMode);
+      } finally {
+        modeBtn.disabled = false;
+      }
+    });
+
+    updateModeButton(appState.simulationMode);
   }
 
   updateGridInfo();
