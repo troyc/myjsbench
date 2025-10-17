@@ -176,23 +176,25 @@ impl World {
                 let dvy = body_a.vy - body_b.vy;
                 let vn = dvx * nx + dvy * ny;
 
-                if vn <= 0.0 {
-                    continue;
+                // Positional correction to resolve overlap
+                let overlap = min_dist - distance;
+                if overlap > 0.0 {
+                    let separation_x = nx * overlap * 0.5;
+                    let separation_y = ny * overlap * 0.5;
+                    body_a.x -= separation_x;
+                    body_a.y -= separation_y;
+                    body_b.x += separation_x;
+                    body_b.y += separation_y;
                 }
 
-                let impulse = vn;
-                body_a.vx -= impulse * nx;
-                body_a.vy -= impulse * ny;
-                body_b.vx += impulse * nx;
-                body_b.vy += impulse * ny;
-
-                let overlap = min_dist - distance;
-                let separation_x = nx * overlap * 0.5;
-                let separation_y = ny * overlap * 0.5;
-                body_a.x -= separation_x;
-                body_a.y -= separation_y;
-                body_b.x += separation_x;
-                body_b.y += separation_y;
+                // Only apply velocity response if moving toward each other
+                if vn > 0.0 {
+                    let impulse = vn; // equal mass, elastic along normal
+                    body_a.vx -= impulse * nx;
+                    body_a.vy -= impulse * ny;
+                    body_b.vx += impulse * nx;
+                    body_b.vy += impulse * ny;
+                }
             }
         }
     }

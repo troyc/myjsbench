@@ -134,7 +134,6 @@ export class SpatialGrid {
     ignoreEntityId?: number
   ): Entity[] {
     const result: Entity[] = [];
-    const r2 = radius * radius;
 
     // Advance per-query stamp (dedupe) and reset on wrap
     this.seenStamp++;
@@ -172,16 +171,13 @@ export class SpatialGrid {
             continue;
           }
 
-          const dx = b.x - x;
-          const dy = b.y - y;
-          if (dx * dx + dy * dy <= r2) {
-            if (id >= this.seenMarks.length) {
-              this.seenMarks.length = id + 1;
-            }
-            if (this.seenMarks[id] !== this.seenStamp) {
-              this.seenMarks[id] = this.seenStamp;
-              result.push(e);
-            }
+          // Dedupe per query; leave precise distance check to narrow-phase
+          if (id >= this.seenMarks.length) {
+            this.seenMarks.length = id + 1;
+          }
+          if (this.seenMarks[id] !== this.seenStamp) {
+            this.seenMarks[id] = this.seenStamp;
+            result.push(e);
           }
         }
       }

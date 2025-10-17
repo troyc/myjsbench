@@ -155,31 +155,33 @@ export class World {
           const nx = dx / distance;
           const ny = dy / distance;
 
-          const dvx = bodyA.vx - bodyB.vx;
-          const dvy = bodyA.vy - bodyB.vy;
+        const dvx = bodyA.vx - bodyB.vx;
+        const dvy = bodyA.vy - bodyB.vy;
 
-          const vn = dvx * nx + dvy * ny;
+        const vn = dvx * nx + dvy * ny;
 
-          if (vn > 0) {
-            const impulse = vn;
+        // Positional correction to resolve overlap
+        const overlap = minDist - distance;
+        if (overlap > 0) {
+          const separationX = nx * overlap * 0.5;
+          const separationY = ny * overlap * 0.5;
+          bodyA.x -= separationX;
+          bodyA.y -= separationY;
+          bodyB.x += separationX;
+          bodyB.y += separationY;
+        }
 
-            bodyA.vx -= impulse * nx;
-            bodyA.vy -= impulse * ny;
-            bodyB.vx += impulse * nx;
-            bodyB.vy += impulse * ny;
-
-            const overlap = minDist - distance;
-            const separationX = nx * overlap * 0.5;
-            const separationY = ny * overlap * 0.5;
-
-            bodyA.x -= separationX;
-            bodyA.y -= separationY;
-            bodyB.x += separationX;
-            bodyB.y += separationY;
-          }
+        // Only apply velocity response if moving toward each other
+        if (vn > 0) {
+          const impulse = vn; // equal mass, elastic along normal
+          bodyA.vx -= impulse * nx;
+          bodyA.vy -= impulse * ny;
+          bodyB.vx += impulse * nx;
+          bodyB.vy += impulse * ny;
         }
       }
     }
+  }
   }
 
   clone(): World {
