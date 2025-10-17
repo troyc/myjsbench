@@ -6,21 +6,31 @@ interface Cell {
 }
 
 export class SpatialGrid {
-  private cells: Map<number, Cell>;
+  private cells: Cell[]; // flat row-major grid
+  private cols: number;
+  private rows: number;
   private cellSizeInv: number;
   private cellSize: number;
   private width: number;
   private height: number;
   private stamp: number;
 
-  private static readonly OFFSET = 1 << 15;
+  // Per-query dedupe without Set
+  private seenMarks: number[] = [];
+  private seenStamp = 1;
 
   constructor(width: number, height: number, cellSize: number) {
     this.width = width;
     this.height = height;
     this.cellSize = cellSize;
     this.cellSizeInv = 1 / cellSize;
-    this.cells = new Map<number, Cell>();
+    const [cols, rows] = this.dims(width, height, cellSize);
+    this.cols = cols;
+    this.rows = rows;
+    this.cells = new Array<Cell>(cols * rows);
+    for (let i = 0; i < this.cells.length; i++) {
+      this.cells[i] = { items: [], stamp: 0 };
+    }
     this.stamp = 1;
   }
 
@@ -31,8 +41,23 @@ export class SpatialGrid {
 
     this.cellSize = cellSize;
     this.cellSizeInv = 1 / cellSize;
-    this.cells.clear();
-    this.stamp = 1;
+    const [cols, rows] = this.dims(this.width, this.height, cellSize);
+    if (cols !== this.cols || rows !== this.rows) {
+      this.cols = cols;
+      this.rows = rows;
+      this.cells = new Array<Cell>(cols * rows);
+      for (let i = 0; i < this.cells.length; i++) {
+        this.cells[i] = { items: [], stamp: 0 };
+      }
+    } else {
+      for (let i = 0; i < this.cells.length; i++) {
+        this.cells[i].items.length = 0;
+        this.cells[i].stamp = 0;
+      }
+      this.stamp = 1;
+    }
+    this.seenMarks.length = 0;
+    this.seenStamp = 1;
   }
 
   getCellSize(): number {
@@ -40,37 +65,53 @@ export class SpatialGrid {
   }
 
   getTotalCellCount(): number {
-    const cols = Math.ceil(this.width / this.cellSize);
-    const rows = Math.ceil(this.height / this.cellSize);
-    return cols * rows;
+    return this.cols * this.rows;
   }
 
   clear(): void {
     this.stamp++;
-    if (this.stamp === Number.MAX_SAFE_INTEGER) {
-      this.cells.clear();
+    if (this.stamp >= Number.MAX_SAFE_INTEGER) {
+      for (let i = 0; i < this.cells.length; i++) {
+        this.cells[i].items.length = 0;
+        this.cells[i].stamp = 0;
+      }
       this.stamp = 1;
     }
+  }
+
+  private dims(width: number, height: number, cellSize: number): [number, number] {
+    const cols = Math.max(1, Math.ceil(width / cellSize));
+    const rows = Math.max(1, Math.ceil(height / cellSize));
+    return [cols, rows];
+  }
+
+  private idx(col: number, row: number): number {
+    return row * this.cols + col;
+  }
+
+  private clampIndex(v: number, max: number): number {
+    if (v < 0) return 0;
+    if (v >= max) return max - 1;
+    return v;
   }
 
   insert(entity: Entity): void {
     const body = entity.body;
     if (!body) return;
 
-    const radius = body.radius;
-    const minCol = Math.floor((body.x - radius) * this.cellSizeInv);
-    const maxCol = Math.floor((body.x + radius) * this.cellSizeInv);
-    const minRow = Math.floor((body.y - radius) * this.cellSizeInv);
-    const maxRow = Math.floor((body.y + radius) * this.cellSizeInv);
+    let minCol = Math.floor((body.x - body.radius) * this.cellSizeInv);
+    let maxCol = Math.floor((body.x + body.radius) * this.cellSizeInv);
+    let minRow = Math.floor((body.y - body.radius) * this.cellSizeInv);
+    let maxRow = Math.floor((body.y + body.radius) * this.cellSizeInv);
 
-    for (let col = minCol; col <= maxCol; col++) {
-      for (let row = minRow; row <= maxRow; row++) {
-        const key = this.packKey(col, row);
-        let cell = this.cells.get(key);
-        if (!cell) {
-          cell = { items: [], stamp: 0 };
-          this.cells.set(key, cell);
-        }
+    minCol = this.clampIndex(minCol, this.cols);
+    maxCol = this.clampIndex(maxCol, this.cols);
+    minRow = this.clampIndex(minRow, this.rows);
+    maxRow = this.clampIndex(maxRow, this.rows);
+
+    for (let row = minRow; row <= maxRow; row++) {
+      for (let col = minCol; col <= maxCol; col++) {
+        const cell = this.cells[this.idx(col, row)];
         if (cell.stamp !== this.stamp) {
           cell.items.length = 0;
           cell.stamp = this.stamp;
@@ -84,28 +125,40 @@ export class SpatialGrid {
     const body = entity.body;
     if (!body) return [];
 
-    const radius = body.radius;
-    const minCol = Math.floor((body.x - radius) * this.cellSizeInv) - 1;
-    const maxCol = Math.floor((body.x + radius) * this.cellSizeInv) + 1;
-    const minRow = Math.floor((body.y - radius) * this.cellSizeInv) - 1;
-    const maxRow = Math.floor((body.y + radius) * this.cellSizeInv) + 1;
+    // Advance per-query stamp (dedupe) and reset on wrap
+    this.seenStamp++;
+    if (this.seenStamp >= Number.MAX_SAFE_INTEGER) {
+      this.seenMarks.fill(0);
+      this.seenStamp = 1;
+    }
 
-    const seenIds = new Set<number>();
+    let minCol = Math.floor((body.x - body.radius) * this.cellSizeInv);
+    let maxCol = Math.floor((body.x + body.radius) * this.cellSizeInv);
+    let minRow = Math.floor((body.y - body.radius) * this.cellSizeInv);
+    let maxRow = Math.floor((body.y + body.radius) * this.cellSizeInv);
+
+    minCol = this.clampIndex(minCol, this.cols);
+    maxCol = this.clampIndex(maxCol, this.cols);
+    minRow = this.clampIndex(minRow, this.rows);
+    maxRow = this.clampIndex(maxRow, this.rows);
+
     const result: Entity[] = [];
 
-    for (let col = minCol; col <= maxCol; col++) {
-      for (let row = minRow; row <= maxRow; row++) {
-        const key = this.packKey(col, row);
-        const cell = this.cells.get(key);
-        if (!cell || cell.stamp !== this.stamp) continue;
+    for (let row = minRow; row <= maxRow; row++) {
+      for (let col = minCol; col <= maxCol; col++) {
+        const cell = this.cells[this.idx(col, row)];
+        if (cell.stamp !== this.stamp) continue;
 
         const items = cell.items;
         for (let i = 0; i < items.length; i++) {
           const other = items[i];
           if (other === entity) continue;
-          const id = other.id;
-          if (!seenIds.has(id)) {
-            seenIds.add(id);
+          const id = other.id >>> 0; // assume 32-bit ids
+          if (id >= this.seenMarks.length) {
+            this.seenMarks.length = id + 1;
+          }
+          if (this.seenMarks[id] !== this.seenStamp) {
+            this.seenMarks[id] = this.seenStamp;
             result.push(other);
           }
         }
@@ -119,16 +172,20 @@ export class SpatialGrid {
     const result: Entity[] = [];
     const r2 = radius * radius;
 
-    const minCol = Math.floor((x - radius) * this.cellSizeInv);
-    const maxCol = Math.floor((x + radius) * this.cellSizeInv);
-    const minRow = Math.floor((y - radius) * this.cellSizeInv);
-    const maxRow = Math.floor((y + radius) * this.cellSizeInv);
+    let minCol = Math.floor((x - radius) * this.cellSizeInv);
+    let maxCol = Math.floor((x + radius) * this.cellSizeInv);
+    let minRow = Math.floor((y - radius) * this.cellSizeInv);
+    let maxRow = Math.floor((y + radius) * this.cellSizeInv);
 
-    for (let col = minCol; col <= maxCol; col++) {
-      for (let row = minRow; row <= maxRow; row++) {
-        const key = this.packKey(col, row);
-        const cell = this.cells.get(key);
-        if (!cell || cell.stamp !== this.stamp) continue;
+    minCol = this.clampIndex(minCol, this.cols);
+    maxCol = this.clampIndex(maxCol, this.cols);
+    minRow = this.clampIndex(minRow, this.rows);
+    maxRow = this.clampIndex(maxRow, this.rows);
+
+    for (let row = minRow; row <= maxRow; row++) {
+      for (let col = minCol; col <= maxCol; col++) {
+        const cell = this.cells[this.idx(col, row)];
+        if (cell.stamp !== this.stamp) continue;
 
         const items = cell.items;
         for (let i = 0; i < items.length; i++) {
@@ -146,11 +203,5 @@ export class SpatialGrid {
     }
 
     return result;
-  }
-
-  private packKey(col: number, row: number): number {
-    const c = (col + SpatialGrid.OFFSET) & 0xffff;
-    const r = (row + SpatialGrid.OFFSET) & 0xffff;
-    return (c << 16) ^ r;
   }
 }
