@@ -124,6 +124,17 @@ export class SpatialGrid {
   query(entity: Entity): Entity[] {
     const body = entity.body;
     if (!body) return [];
+    return this.getEntitiesInRadius(body.x, body.y, body.radius, entity.id);
+  }
+
+  getEntitiesInRadius(
+    x: number,
+    y: number,
+    radius: number,
+    ignoreEntityId?: number
+  ): Entity[] {
+    const result: Entity[] = [];
+    const r2 = radius * radius;
 
     // Advance per-query stamp (dedupe) and reset on wrap
     this.seenStamp++;
@@ -132,45 +143,8 @@ export class SpatialGrid {
       this.seenStamp = 1;
     }
 
-    let minCol = Math.floor((body.x - body.radius) * this.cellSizeInv);
-    let maxCol = Math.floor((body.x + body.radius) * this.cellSizeInv);
-    let minRow = Math.floor((body.y - body.radius) * this.cellSizeInv);
-    let maxRow = Math.floor((body.y + body.radius) * this.cellSizeInv);
-
-    minCol = this.clampIndex(minCol, this.cols);
-    maxCol = this.clampIndex(maxCol, this.cols);
-    minRow = this.clampIndex(minRow, this.rows);
-    maxRow = this.clampIndex(maxRow, this.rows);
-
-    const result: Entity[] = [];
-
-    for (let row = minRow; row <= maxRow; row++) {
-      for (let col = minCol; col <= maxCol; col++) {
-        const cell = this.cells[this.idx(col, row)];
-        if (cell.stamp !== this.stamp) continue;
-
-        const items = cell.items;
-        for (let i = 0; i < items.length; i++) {
-          const other = items[i];
-          if (other === entity) continue;
-          const id = other.id >>> 0; // assume 32-bit ids
-          if (id >= this.seenMarks.length) {
-            this.seenMarks.length = id + 1;
-          }
-          if (this.seenMarks[id] !== this.seenStamp) {
-            this.seenMarks[id] = this.seenStamp;
-            result.push(other);
-          }
-        }
-      }
-    }
-
-    return result;
-  }
-
-  getEntitiesInRadius(x: number, y: number, radius: number): Entity[] {
-    const result: Entity[] = [];
-    const r2 = radius * radius;
+    const ignoreMark =
+      ignoreEntityId === undefined ? undefined : ignoreEntityId >>> 0;
 
     let minCol = Math.floor((x - radius) * this.cellSizeInv);
     let maxCol = Math.floor((x + radius) * this.cellSizeInv);
@@ -193,10 +167,21 @@ export class SpatialGrid {
           const b = e.body;
           if (!b) continue;
 
+          const id = e.id >>> 0;
+          if (ignoreMark !== undefined && id === ignoreMark) {
+            continue;
+          }
+
           const dx = b.x - x;
           const dy = b.y - y;
           if (dx * dx + dy * dy <= r2) {
-            result.push(e);
+            if (id >= this.seenMarks.length) {
+              this.seenMarks.length = id + 1;
+            }
+            if (this.seenMarks[id] !== this.seenStamp) {
+              this.seenMarks[id] = this.seenStamp;
+              result.push(e);
+            }
           }
         }
       }

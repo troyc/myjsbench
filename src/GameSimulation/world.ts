@@ -123,7 +123,12 @@ export class World {
     for (const entityA of this.entities) {
       if (!entityA.body) continue;
 
-      const nearby = this.spatialGrid.query(entityA);
+      const nearby = this.spatialGrid.getEntitiesInRadius(
+        entityA.body.x,
+        entityA.body.y,
+        entityA.body.radius,
+        entityA.id
+      );
 
       for (const entityB of nearby) {
         if (!entityB.body) continue;

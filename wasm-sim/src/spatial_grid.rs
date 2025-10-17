@@ -147,11 +147,12 @@ impl SpatialGrid {
         }
     }
 
-    pub(crate) fn query(
+    pub(crate) fn get_entities_in_radius(
         &mut self,
         x: f32,
         y: f32,
         radius: f32,
+        ignore: Option<usize>,
         seen_external: &mut AHashSet<usize>,
     ) -> SmallVec<[usize; QUERY_INLINE_CAP]> {
         seen_external.clear();
@@ -164,6 +165,7 @@ impl SpatialGrid {
         }
 
         let mut results = SmallVec::<[usize; QUERY_INLINE_CAP]>::new();
+        let ignore_idx = ignore;
 
         let mut min_col = self.to_col(x - radius);
         let mut max_col = self.to_col(x + radius);
@@ -185,16 +187,19 @@ impl SpatialGrid {
                 if cell.stamp != self.stamp {
                     continue;
                 }
-                for &idx in &cell.items {
-                    if idx < self.seen_marks.len() {
-                        if self.seen_marks[idx] != self.seen_stamp {
-                            self.seen_marks[idx] = self.seen_stamp;
-                            results.push(idx);
+                for &entity_idx in &cell.items {
+                    if Some(entity_idx) == ignore_idx {
+                        continue;
+                    }
+                    if entity_idx < self.seen_marks.len() {
+                        if self.seen_marks[entity_idx] != self.seen_stamp {
+                            self.seen_marks[entity_idx] = self.seen_stamp;
+                            results.push(entity_idx);
                         }
                     } else {
                         // Avoid growing a giant marks array for sparse large indices; use hash set fallback
-                        if seen_external.insert(idx) {
-                            results.push(idx);
+                        if seen_external.insert(entity_idx) {
+                            results.push(entity_idx);
                         }
                     }
                 }

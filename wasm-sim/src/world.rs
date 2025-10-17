@@ -133,7 +133,13 @@ impl World {
 
             let nearby = self
                 .spatial_grid
-                .query(body_a.x, body_a.y, body_a.radius, &mut seen);
+                .get_entities_in_radius(
+                    body_a.x,
+                    body_a.y,
+                    body_a.radius,
+                    Some(i),
+                    &mut seen,
+                );
 
             for &j in &nearby {
                 if j <= i {
